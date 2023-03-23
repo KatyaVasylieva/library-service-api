@@ -1,5 +1,6 @@
 from django.db import transaction
 from rest_framework import mixins, viewsets, status
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -7,7 +8,7 @@ from books.models import Book
 from borrowings.models import Borrowing
 from borrowings.serializers import (
     BorrowingSerializer,
-    BorrowingCreateSerializer
+    BorrowingCreateSerializer, BorrowingReturnSerializer
 )
 
 
@@ -23,6 +24,9 @@ class BorrowingViewSet(
     def get_serializer_class(self):
         if self.action == "create":
             return BorrowingCreateSerializer
+
+        if self.action == "return_book":
+            return BorrowingReturnSerializer
 
         return BorrowingSerializer
 
@@ -57,3 +61,21 @@ class BorrowingViewSet(
                 status=status.HTTP_201_CREATED,
                 headers=headers
             )
+
+    @action(
+        methods=["POST"],
+        detail=True,
+        url_path="return",
+    )
+    def return_book(self, request, pk=None):
+        """Endpoint for returning book and closing specific borrowing"""
+        borrowing = self.get_object()
+        serializer = self.get_serializer(borrowing, data=request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+            borrowing.book.inventory += 1
+            borrowing.book.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
