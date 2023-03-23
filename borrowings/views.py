@@ -26,6 +26,22 @@ class BorrowingViewSet(
 
         return BorrowingSerializer
 
+    def get_queryset(self):
+        user_id = self.request.query_params.get("user_id")
+        is_active = self.request.query_params.get("is_active")
+
+        queryset = self.queryset.all()
+
+        if user_id:
+            queryset = queryset.filter(user__id=user_id)
+
+        if is_active:
+            queryset = queryset.filter(
+                actual_return_date__isnull=eval(is_active)
+            )
+
+        return queryset
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
