@@ -6,7 +6,7 @@ class Book(models.Model):
         HARD = "HARD", "Hard"
         SOFT = "SOFT", "Soft"
 
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, unique=True)
     author = models.CharField(max_length=63)
     cover = models.CharField(max_length=4, choices=Cover.choices)
     inventory = models.PositiveIntegerField()

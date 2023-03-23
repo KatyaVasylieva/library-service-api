@@ -1,8 +1,8 @@
 from rest_framework import viewsets
 
-from book.models import Book
-from book.permissions import IsAdminOrReadOnly
-from book.serializers import BookSerializer
+from books.models import Book
+from books.permissions import IsAdminOrReadOnly
+from books.serializers import BookSerializer
 
 
 class BookViewSet(viewsets.ModelViewSet):
