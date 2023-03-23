@@ -8,7 +8,8 @@ from books.models import Book
 from borrowings.models import Borrowing
 from borrowings.serializers import (
     BorrowingSerializer,
-    BorrowingCreateSerializer, BorrowingReturnSerializer
+    BorrowingCreateSerializer,
+    BorrowingReturnSerializer,
 )
 
 
@@ -33,11 +34,14 @@ class BorrowingViewSet(
     def get_queryset(self):
         user_id = self.request.query_params.get("user_id")
         is_active = self.request.query_params.get("is_active")
-
         queryset = self.queryset.all()
 
-        if user_id:
-            queryset = queryset.filter(user__id=user_id)
+        if self.request.user.is_superuser:
+            if user_id:
+                queryset = queryset.filter(user__id=user_id)
+
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(user=self.request.user)
 
         if is_active:
             queryset = queryset.filter(
