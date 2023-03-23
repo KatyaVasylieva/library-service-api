@@ -33,8 +33,7 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
             "borrow_date",
             "expected_return_date",
             "actual_return_date",
-            "book",
-            "user"
+            "book"
         )
 
 
