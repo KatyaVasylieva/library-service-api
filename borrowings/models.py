@@ -8,7 +8,7 @@ from users.models import User
 class Borrowing(models.Model):
     borrow_date = models.DateField()
     expected_return_date = models.DateField()
-    actual_return_date = models.DateField()
+    actual_return_date = models.DateField(blank=True, null=True)
     book = models.ForeignKey(
         Book, on_delete=DO_NOTHING, related_name="borrowings"
     )
