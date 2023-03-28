@@ -77,12 +77,14 @@ class BorrowingViewSet(
     def return_book(self, request, pk=None):
         """Endpoint for returning book and closing specific borrowing"""
         borrowing = self.get_object()
+        was_not_returned = borrowing.actual_return_date
         serializer = self.get_serializer(borrowing, data=request.data)
 
         if serializer.is_valid():
             serializer.save()
-            borrowing.book.inventory += 1
-            borrowing.book.save()
+            if not was_not_returned:
+                borrowing.book.inventory += 1
+                borrowing.book.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
