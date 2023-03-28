@@ -1,3 +1,6 @@
+import os
+
+import requests
 from django.db import transaction
 from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
@@ -11,6 +14,32 @@ from borrowings.serializers import (
     BorrowingCreateSerializer,
     BorrowingReturnSerializer,
 )
+
+TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+
+
+def get_telegram_chat_id() -> int:
+    """Returns user's chat id to send notifications to"""
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    response = requests.get(url).json()
+    chat_id = response["result"][0]["message"]["chat"]["id"]
+    return chat_id
+
+
+def send_borrowing_create_message(
+        chat_id: int, book: Book, expected_return_date: str
+):
+    """Sends a message while creating a borrowing with detailed info"""
+    message = (
+        f"Greetings! You've just borrowed the book {book.title}. "
+        f"Make sure to return it 'till {expected_return_date}. "
+        f"Have a good read!"
+    )
+    url = (
+        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/"
+        f"sendMessage?chat_id={chat_id}&text={message}"
+    )
+    requests.get(url)
 
 
 class BorrowingViewSet(
@@ -60,6 +89,12 @@ class BorrowingViewSet(
             book.inventory -= 1
             book.save()
             headers = self.get_success_headers(serializer.data)
+
+            chat_id = get_telegram_chat_id()
+            send_borrowing_create_message(
+                chat_id, book, self.request.data["expected_return_date"]
+            )
+
             return Response(
                 serializer.data,
                 status=status.HTTP_201_CREATED,
