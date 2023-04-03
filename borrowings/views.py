@@ -14,30 +14,20 @@ from borrowings.serializers import (
     BorrowingCreateSerializer,
     BorrowingReturnSerializer,
 )
-
-TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
-
-
-def get_telegram_chat_id() -> int:
-    """Returns user's chat id to send notifications to"""
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
-    response = requests.get(url).json()
-    chat_id = response["result"][0]["message"]["chat"]["id"]
-    return chat_id
+from users.models import User
 
 
 def send_borrowing_create_message(
-        chat_id: int, book: Book, expected_return_date: str
+        user: User, book: Book, expected_return_date: str
 ):
     """Sends a message while creating a borrowing with detailed info"""
     message = (
-        f"Greetings! You've just borrowed the book {book.title}. "
-        f"Make sure to return it 'till {expected_return_date}. "
-        f"Have a good read!"
+        f"User {user.email} have just borrowed a {book.title} book. "
+        f"It is expected to be returned 'till {expected_return_date}."
     )
     url = (
-        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/"
-        f"sendMessage?chat_id={chat_id}&text={message}"
+        f"https://api.telegram.org/bot{os.environ['TELEGRAM_TOKEN']}/"
+        f"sendMessage?chat_id={os.environ['CHAT_ID']}&text={message}"
     )
     requests.get(url)
 
@@ -90,9 +80,10 @@ class BorrowingViewSet(
             book.save()
             headers = self.get_success_headers(serializer.data)
 
-            chat_id = get_telegram_chat_id()
             send_borrowing_create_message(
-                chat_id, book, self.request.data["expected_return_date"]
+                self.request.user,
+                book,
+                self.request.data["expected_return_date"]
             )
 
             return Response(
