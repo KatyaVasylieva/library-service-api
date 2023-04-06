@@ -1,7 +1,11 @@
+from decimal import Decimal
+
+from django.db import transaction
 from rest_framework import serializers
 
 from books.serializers import BookSerializer
-from borrowings.models import Borrowing
+from borrowings.models import Borrowing, Payment
+from borrowings.stripe import create_stripe_session_for_borrowing
 
 
 class BorrowingSerializer(serializers.ModelSerializer):
@@ -9,6 +13,7 @@ class BorrowingSerializer(serializers.ModelSerializer):
     expected_return_date = serializers.DateField(required=True)
     book = BookSerializer()
     user = serializers.CharField()
+    payments = serializers.StringRelatedField(many=True)
 
     class Meta:
         model = Borrowing
@@ -19,7 +24,9 @@ class BorrowingSerializer(serializers.ModelSerializer):
             "actual_return_date",
             "book",
             "user",
+            "payments",
         )
+        read_only_fields = ("payments",)
 
 
 class BorrowingCreateSerializer(serializers.ModelSerializer):
@@ -30,8 +37,41 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
         model = Borrowing
         fields = ("id", "borrow_date", "expected_return_date", "book")
 
+    def create(self, validated_data):
+        with transaction.atomic():
+            borrowing = Borrowing.objects.create(**validated_data)
+            session = create_stripe_session_for_borrowing(
+                borrowing, self.context["request"].build_absolute_uri()
+            )
+            Payment.objects.create(
+                status="PENDING",
+                type="PAYMENT",
+                borrowing=borrowing,
+                session_url=session["url"],
+                session_id=session["id"],
+                to_pay=Decimal(session["amount_total"] / 100),
+            )
+            return borrowing
+
 
 class BorrowingReturnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Borrowing
         fields = ("id", "actual_return_date")
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    borrowing = BorrowingSerializer()
+
+    class Meta:
+        model = Payment
+        fields = (
+            "id",
+            "status",
+            "type",
+            "borrowing",
+            "session_url",
+            "session_id",
+            "to_pay",
+        )
+        read_only_fields = ("session_url", "session_id")
