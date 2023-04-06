@@ -1,6 +1,7 @@
 import os
 
 import requests
+import stripe
 from django.db import transaction
 from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
@@ -8,11 +9,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from books.models import Book
-from borrowings.models import Borrowing
+from borrowings.models import Borrowing, Payment
 from borrowings.serializers import (
     BorrowingSerializer,
     BorrowingCreateSerializer,
     BorrowingReturnSerializer,
+    PaymentSerializer,
 )
 from users.models import User
 
@@ -95,6 +97,11 @@ class BorrowingViewSet(
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
     @action(
         methods=["POST"],
         detail=True,
@@ -114,3 +121,61 @@ class BorrowingViewSet(
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(
+        methods=["GET"],
+        detail=True,
+        url_path="success",
+    )
+    def borrowing_is_successfully_paid(self, request, pk=None):
+        """Success endpoint after paying for the borrowing"""
+        borrowing = self.get_object()
+        session_id = request.query_params.get("session_id")
+        payment = Payment.objects.get(session_id=session_id)
+        session = stripe.checkout.Session.retrieve(session_id)
+        if session["payment_status"] == "paid":
+            payment.status = "PAID"
+            payment.save()
+            serializer = self.get_serializer(borrowing)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {"Fail": "Payment wasn't successful."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    @action(
+        methods=["GET"],
+        detail=True,
+        url_path="cancel",
+    )
+    def borrowing_payment_is_cancelled(self, request, pk=None):
+        """Cancel endpoint for borrowing payment"""
+        borrowing = self.get_object()
+        session_id = request.query_params.get("session_id")
+        session = stripe.checkout.Session.retrieve(session_id)
+        return Response(
+            {
+                "Cancel": f"The payment for the {borrowing} is cancelled. "
+                f"Make sure to pay during 24 hours. Payment url: "
+                f"{session.url}. Thanks!"
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PaymentViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        queryset = self.queryset.all()
+
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(borrowing__user=self.request.user)
+
+        return queryset
