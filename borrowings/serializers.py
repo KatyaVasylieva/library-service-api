@@ -40,11 +40,13 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
         fields = ("id", "borrow_date", "expected_return_date", "book")
 
     def create(self, validated_data):
-
-        user_payments_unpaid = Payment.objects.filter(Q(borrowing__user=validated_data["user"]) & ~Q(status="PAID"))
+        user_payments_unpaid = Payment.objects.filter(
+            Q(borrowing__user=validated_data["user"]) & ~Q(status="PAID")
+        )
         if user_payments_unpaid:
             raise serializers.ValidationError(
-                "Make sure you paid your previous borrowings and fines before creating new borrowing."
+                "Make sure you paid your previous borrowings "
+                "and fines before creating new borrowing."
             )
 
         with transaction.atomic():
@@ -54,7 +56,7 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
                 self.context["request"].build_absolute_uri(),
                 borrowing.borrow_date,
                 borrowing.expected_return_date,
-                is_fine=False
+                is_fine=False,
             )
             Payment.objects.create(
                 status="PENDING",

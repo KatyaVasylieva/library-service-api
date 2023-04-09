@@ -2,7 +2,7 @@ from celery import shared_task
 
 from borrowings.scrapper import (
     send_notification_about_overdue,
-    mark_expired_payments_as_expired
+    scrape_expired_payments
 )
 
 
@@ -13,4 +13,4 @@ def check_overdue_borrowings() -> None:
 
 @shared_task
 def check_expired_payment_sessions() -> None:
-    mark_expired_payments_as_expired()
+    scrape_expired_payments()

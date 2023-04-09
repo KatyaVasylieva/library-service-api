@@ -11,6 +11,7 @@ from rest_framework.response import Response
 
 from books.models import Book
 from borrowings.models import Borrowing, Payment
+from borrowings.scrapper import send_notification
 from borrowings.serializers import (
     BorrowingSerializer,
     BorrowingCreateSerializer,
@@ -160,6 +161,7 @@ class BorrowingViewSet(
         if session["payment_status"] == "paid":
             payment.status = "PAID"
             payment.save()
+            send_notification(f"{payment} was paid.")
             serializer = self.get_serializer(borrowing)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(

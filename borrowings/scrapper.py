@@ -50,7 +50,7 @@ def send_notification_about_overdue() -> None:
         send_notification(message)
 
 
-def mark_expired_payments_as_expired() -> None:
+def scrape_expired_payments() -> None:
     """
     For pending payments checks if the session is expired
     and marks payment as expired
