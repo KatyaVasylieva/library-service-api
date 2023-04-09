@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 
 import requests
 import stripe
@@ -16,6 +17,7 @@ from borrowings.serializers import (
     BorrowingReturnSerializer,
     PaymentSerializer,
 )
+from borrowings.stripe import create_stripe_session_for_fine
 from users.models import User
 
 
@@ -114,10 +116,27 @@ class BorrowingViewSet(
         serializer = self.get_serializer(borrowing, data=request.data)
 
         if serializer.is_valid():
-            serializer.save()
+            borrowing_updated = serializer.save()
             if not was_not_returned:
                 borrowing.book.inventory += 1
                 borrowing.book.save()
+
+            if (
+                borrowing_updated.expected_return_date
+                < borrowing_updated.actual_return_date
+            ):
+                session = create_stripe_session_for_fine(
+                    borrowing_updated, request.build_absolute_uri()
+                )
+                Payment.objects.create(
+                    status="PENDING",
+                    type="FINE",
+                    borrowing=borrowing,
+                    session_url=session["url"],
+                    session_id=session["id"],
+                    to_pay=Decimal(session["amount_total"] / 100),
+                )
+
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
