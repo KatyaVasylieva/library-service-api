@@ -1,10 +1,12 @@
 import os
+import time
 from datetime import date, timedelta
 
 import requests
+import stripe
 from django.db.models import QuerySet
 
-from borrowings.models import Borrowing
+from borrowings.models import Borrowing, Payment
 
 
 def scrape_overdue_borrowings() -> QuerySet:
@@ -46,3 +48,19 @@ def send_notification_about_overdue() -> None:
     else:
         message = "There are no overdue borrowings."
         send_notification(message)
+
+
+def mark_expired_payments_as_expired() -> None:
+    """
+    For pending payments checks if the session is expired
+    and marks payment as expired
+    """
+    now = time.time()
+    pending_payments = Payment.objects.filter(status="PENDING")
+    for payment in pending_payments:
+        expires_at = stripe.checkout.Session.retrieve(
+            payment.session_id
+        )["expires_at"]
+        if now > expires_at:
+            payment.status = "EXPIRED"
+            payment.save()

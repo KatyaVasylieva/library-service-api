@@ -75,3 +75,10 @@ class PaymentSerializer(serializers.ModelSerializer):
             "to_pay",
         )
         read_only_fields = ("session_url", "session_id")
+
+
+class PaymentRenewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ("id",)
+        read_only_fields = ("id",)

@@ -16,8 +16,12 @@ from borrowings.serializers import (
     BorrowingCreateSerializer,
     BorrowingReturnSerializer,
     PaymentSerializer,
+    PaymentRenewSerializer,
 )
-from borrowings.stripe import create_stripe_session_for_fine
+from borrowings.stripe import (
+    create_stripe_session_for_fine,
+    create_stripe_session_for_borrowing,
+)
 from users.models import User
 
 
@@ -191,6 +195,12 @@ class PaymentViewSet(
     serializer_class = PaymentSerializer
     permission_classes = (IsAuthenticated,)
 
+    def get_serializer_class(self):
+        if self.action == "renew":
+            return PaymentRenewSerializer
+
+        return PaymentSerializer
+
     def get_queryset(self):
         queryset = self.queryset.all()
 
@@ -198,3 +208,36 @@ class PaymentViewSet(
             queryset = queryset.filter(borrowing__user=self.request.user)
 
         return queryset
+
+    @action(
+        methods=["POST"],
+        detail=True,
+        url_path="renew",
+    )
+    def renew(self, request, pk=None):
+        """Creates new session for the expired endpoint"""
+        payment = self.get_object()
+
+        if payment.status == "EXPIRED":
+            if payment.type == "PAYMENT":
+                session = create_stripe_session_for_borrowing(
+                    payment.borrowing,
+                    request.build_absolute_uri().rsplit("/", 2)[0]
+                )
+            else:
+                session = create_stripe_session_for_fine(
+                    payment.borrowing, request.build_absolute_uri()
+                )
+
+            payment.session_id = session["id"]
+            payment.session_url = session["url"]
+            payment.status = "PENDING"
+            payment.save()
+
+            serializer = PaymentSerializer(payment)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(
+            {"Not expired": "The payment you want to update is not expired."},
+            status=status.HTTP_200_OK,
+        )
