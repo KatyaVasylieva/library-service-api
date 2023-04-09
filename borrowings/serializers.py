@@ -1,7 +1,9 @@
 from decimal import Decimal
 
 from django.db import transaction
-from rest_framework import serializers
+from django.db.models import Q
+from rest_framework import serializers, status
+from rest_framework.response import Response
 
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing, Payment
@@ -38,6 +40,13 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
         fields = ("id", "borrow_date", "expected_return_date", "book")
 
     def create(self, validated_data):
+
+        user_payments_unpaid = Payment.objects.filter(Q(borrowing__user=validated_data["user"]) & ~Q(status="PAID"))
+        if user_payments_unpaid:
+            raise serializers.ValidationError(
+                "Make sure you paid your previous borrowings and fines before creating new borrowing."
+            )
+
         with transaction.atomic():
             borrowing = Borrowing.objects.create(**validated_data)
             session = create_stripe_session(
