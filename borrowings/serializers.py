@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing, Payment
-from borrowings.stripe import create_stripe_session_for_borrowing
+from borrowings.stripe import create_stripe_session
 
 
 class BorrowingSerializer(serializers.ModelSerializer):
@@ -40,8 +40,12 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         with transaction.atomic():
             borrowing = Borrowing.objects.create(**validated_data)
-            session = create_stripe_session_for_borrowing(
-                borrowing, self.context["request"].build_absolute_uri()
+            session = create_stripe_session(
+                borrowing,
+                self.context["request"].build_absolute_uri(),
+                borrowing.borrow_date,
+                borrowing.expected_return_date,
+                is_fine=False
             )
             Payment.objects.create(
                 status="PENDING",

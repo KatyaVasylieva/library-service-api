@@ -18,10 +18,7 @@ from borrowings.serializers import (
     PaymentSerializer,
     PaymentRenewSerializer,
 )
-from borrowings.stripe import (
-    create_stripe_session_for_fine,
-    create_stripe_session_for_borrowing,
-)
+from borrowings.stripe import create_stripe_session
 from users.models import User
 
 
@@ -129,8 +126,12 @@ class BorrowingViewSet(
                 borrowing_updated.expected_return_date
                 < borrowing_updated.actual_return_date
             ):
-                session = create_stripe_session_for_fine(
-                    borrowing_updated, request.build_absolute_uri()
+                session = create_stripe_session(
+                    borrowing_updated,
+                    request.build_absolute_uri(),
+                    borrowing_updated.expected_return_date,
+                    borrowing.actual_return_date,
+                    is_fine=True
                 )
                 Payment.objects.create(
                     status="PENDING",
@@ -217,16 +218,24 @@ class PaymentViewSet(
     def renew(self, request, pk=None):
         """Creates new session for the expired endpoint"""
         payment = self.get_object()
+        borrowing = payment.borrowing
 
         if payment.status == "EXPIRED":
             if payment.type == "PAYMENT":
-                session = create_stripe_session_for_borrowing(
-                    payment.borrowing,
-                    request.build_absolute_uri().rsplit("/", 2)[0]
+                session = create_stripe_session(
+                    borrowing,
+                    request.build_absolute_uri().rsplit("/", 2)[0],
+                    borrowing.borrow_date,
+                    borrowing.expected_return_date,
+                    is_fine=False
                 )
             else:
-                session = create_stripe_session_for_fine(
-                    payment.borrowing, request.build_absolute_uri()
+                session = create_stripe_session(
+                    borrowing,
+                    request.build_absolute_uri().rsplit("/", 2)[0],
+                    borrowing.expected_return_date,
+                    borrowing.actual_return_date,
+                    is_fine=True
                 )
 
             payment.session_id = session["id"]
