@@ -1,12 +1,15 @@
 import os
 from decimal import Decimal
+from typing import Any
 
 import requests
 import stripe
 from django.db import transaction
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from books.models import Book
@@ -24,7 +27,7 @@ from users.models import User
 
 
 def send_borrowing_create_message(
-        user: User, book: Book, expected_return_date: str
+    user: User, book: Book, expected_return_date: str
 ) -> None:
     """Sends a message while creating a borrowing with detailed info"""
     message = (
@@ -44,7 +47,11 @@ class BorrowingViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = Borrowing.objects.all()
+    queryset = Borrowing.objects.select_related(
+        "book", "user"
+    ).prefetch_related(
+        "payments"
+    )
     permission_classes = (IsAuthenticated,)
 
     def get_serializer_class(self):
@@ -74,6 +81,24 @@ class BorrowingViewSet(
             )
 
         return queryset
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="user_id",
+                description="For admins - filter by user_id (ex. '?user_id=1)",
+                required=False,
+                type=int),
+            OpenApiParameter(
+                name="is_active",
+                description="Filter by active borrowings "
+                            "(ex. ?is_active=True)",
+                required=False,
+                type=str),
+        ],
+    )
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().list(self, request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -112,7 +137,7 @@ class BorrowingViewSet(
         url_path="return",
     )
     def return_book(self, request, pk=None):
-        """Endpoint for returning book and closing specific borrowing"""
+        """Endpoint for returning book and closing the specific borrowing"""
         borrowing = self.get_object()
         was_not_returned = borrowing.actual_return_date
         serializer = self.get_serializer(borrowing, data=request.data)
@@ -132,7 +157,7 @@ class BorrowingViewSet(
                     request.build_absolute_uri(),
                     borrowing_updated.expected_return_date,
                     borrowing.actual_return_date,
-                    is_fine=True
+                    is_fine=True,
                 )
                 Payment.objects.create(
                     status="PENDING",
@@ -192,7 +217,9 @@ class PaymentViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = Payment.objects.all()
+    queryset = Payment.objects.select_related(
+        "borrowing__book", "borrowing__user"
+    ).prefetch_related("borrowing__payments")
     serializer_class = PaymentSerializer
     permission_classes = (IsAuthenticated,)
 
@@ -227,7 +254,7 @@ class PaymentViewSet(
                     request.build_absolute_uri().rsplit("/", 2)[0],
                     borrowing.borrow_date,
                     borrowing.expected_return_date,
-                    is_fine=False
+                    is_fine=False,
                 )
             else:
                 session = create_stripe_session(
@@ -235,7 +262,7 @@ class PaymentViewSet(
                     request.build_absolute_uri().rsplit("/", 2)[0],
                     borrowing.expected_return_date,
                     borrowing.actual_return_date,
-                    is_fine=True
+                    is_fine=True,
                 )
 
             payment.session_id = session["id"]
