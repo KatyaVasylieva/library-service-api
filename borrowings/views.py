@@ -25,7 +25,7 @@ from users.models import User
 
 def send_borrowing_create_message(
         user: User, book: Book, expected_return_date: str
-):
+) -> None:
     """Sends a message while creating a borrowing with detailed info"""
     message = (
         f"User {user.email} have just borrowed a {book.title} book. "
@@ -117,7 +117,7 @@ class BorrowingViewSet(
         was_not_returned = borrowing.actual_return_date
         serializer = self.get_serializer(borrowing, data=request.data)
 
-        if serializer.is_valid():
+        if serializer.is_valid(raise_exception=True):
             borrowing_updated = serializer.save()
             if not was_not_returned:
                 borrowing.book.inventory += 1
@@ -144,8 +144,6 @@ class BorrowingViewSet(
                 )
 
             return Response(serializer.data, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(
         methods=["GET"],
