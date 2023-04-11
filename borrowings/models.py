@@ -50,8 +50,8 @@ class Payment(models.Model):
     borrowing = models.ForeignKey(
         Borrowing, on_delete=models.DO_NOTHING, related_name="payments"
     )
-    session_url = models.CharField(max_length=300)
-    session_id = models.CharField(max_length=300)
+    session_url = models.CharField(max_length=500)
+    session_id = models.CharField(max_length=500)
     to_pay = models.DecimalField(decimal_places=2, max_digits=4)
 
     def __str__(self):
