@@ -1,15 +1,26 @@
-# library-service-api
+# Library service api
+Service for managing book borrowings and payments.
 
-for telegram:
-Send your Telegram bot (t.me/library_service_api_bot) a message (any random message)
+### Special features:
+* Supports JWT authorization.
+* Allows users to create book borrowings initializing payment at once.
+* Monitors book inventory.
+* Creates Stripe session to every payment.
+* Sends telegram notification to admin when the borrowing is created.
+* Executes every-day task for monitoring overdue borrowings, and sends notifications to admin.
+* Executes every-minute task for monitoring expired stripe sessions, marks this payments as expired.
+* Implements return book functionality.
+* Automatically create fine payment if user returned a book after expected return date.
+* Implements a possibility to renew payment session if the previous one is expired.
+* Forbids user to borrow another book if there are any pending payments user is supposed to pay.
 
-How to run:
-* Crate venv: `python -m venv venv`
-* Activate it: `source venv/bin/activate`
-* Install requirements: `pip install requirements.txt`
-* Run migrations: `python manage.py migrate`
-* Run Redis server: `docker run -d -p 6379:6379 redis`
-* Run Celery worker for tasks handling: `celery -A library_service_api worker -l INFO`
-* Run Celery beat for task scheduling: `celery -A library_service_api beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler`
-* Create schedule for running sync in DB
-* Run app: `python manage.py runserver`
+
+### Before running:
+- Send any message to this telegram bot - t.me/library_service_api_bot.
+- Get chat id. You'll be receiving notifications in this chat.
+
+### How to run:
+- Rename .env.sample into .env and populate with all required data.
+- `docker-compose up --build`
+- Create admin user
+- Create periodic tasks for sending notifications about overdue and marking expired sessions.
