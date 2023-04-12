@@ -1,4 +1,3 @@
-import os
 import time
 from datetime import date, timedelta
 
@@ -7,6 +6,7 @@ import stripe
 from django.db.models import QuerySet
 
 from borrowings.models import Borrowing, Payment
+from library_service_api.settings import TELEGRAM_TOKEN, CHAT_ID
 
 
 def scrape_overdue_borrowings() -> QuerySet:
@@ -25,8 +25,8 @@ def send_notification(message: str) -> None:
     Sends a message to admin
     """
     url = (
-        f"https://api.telegram.org/bot{os.environ['TELEGRAM_TOKEN']}/"
-        f"sendMessage?chat_id={os.environ['CHAT_ID']}&text={message}"
+        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/"
+        f"sendMessage?chat_id={CHAT_ID}&text={message}"
     )
     requests.get(url)
 

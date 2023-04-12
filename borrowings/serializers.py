@@ -2,8 +2,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Q
-from rest_framework import serializers, status
-from rest_framework.response import Response
+from rest_framework import serializers
 
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing, Payment
@@ -34,14 +33,26 @@ class BorrowingSerializer(serializers.ModelSerializer):
 class BorrowingCreateSerializer(serializers.ModelSerializer):
     borrow_date = serializers.DateField(required=True)
     expected_return_date = serializers.DateField(required=True)
+    user = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
 
     class Meta:
         model = Borrowing
-        fields = ("id", "borrow_date", "expected_return_date", "book")
+        fields = ("id", "borrow_date", "expected_return_date", "book", "user")
 
-    def create(self, validated_data):
+    def validate(self, data):
+        """
+        Validates that borrow date is before expected return date.
+        Also validates that user does not have any unpaid borrowings and fines.
+        """
+
+        if data["borrow_date"] > data["expected_return_date"]:
+            raise serializers.ValidationError(
+                "Borrow date cannot be after return date."
+            )
         user_payments_unpaid = Payment.objects.filter(
-            Q(borrowing__user=validated_data["user"]) & ~Q(status="PAID")
+            Q(borrowing__user=data["user"]) & ~Q(status="PAID")
         )
         if user_payments_unpaid:
             raise serializers.ValidationError(
@@ -49,6 +60,9 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
                 "and fines before creating new borrowing."
             )
 
+        return data
+
+    def create(self, validated_data):
         with transaction.atomic():
             borrowing = Borrowing.objects.create(**validated_data)
             session = create_stripe_session(
@@ -73,6 +87,17 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Borrowing
         fields = ("id", "actual_return_date")
+
+    def validate_actual_return_date(self, value):
+        """
+        Validates that borrow date is before actual return date.
+        """
+
+        if value < self.instance.borrow_date:
+            raise serializers.ValidationError(
+                "Borrow date cannot be after return date."
+            )
+        return value
 
 
 class PaymentSerializer(serializers.ModelSerializer):
