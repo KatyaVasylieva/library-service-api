@@ -20,7 +20,11 @@ Service for managing book borrowings and payments.
 - Get chat id. You'll be receiving notifications in this chat.
 
 ### How to run:
-- Rename .env.sample into .env and populate with all required data.
+- Rename ".env.sample" into ".env" and populate with all required data.
 - `docker-compose up --build`
-- Create admin user
-- Create periodic tasks for sending notifications about overdue and marking expired sessions.
+- Get the id of "library_service_api-web" container by running `docker ps`
+- Load test data by running `docker exec -it <container_id>  python manage.py loaddata test_data.json`.
+
+Test data already includes implemented periodic tasks. Use this admin user to explore the functionality:
+* Username: `admin@test.com`
+* Password: `testpassword`
