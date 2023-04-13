@@ -7,6 +7,7 @@ from rest_framework import serializers
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing, Payment
 from borrowings.stripe import create_stripe_session
+from library_service_api.settings import STRIPE_PUBLIC_KEY
 
 
 class BorrowingSerializer(serializers.ModelSerializer):
@@ -33,9 +34,7 @@ class BorrowingSerializer(serializers.ModelSerializer):
 class BorrowingCreateSerializer(serializers.ModelSerializer):
     borrow_date = serializers.DateField(required=True)
     expected_return_date = serializers.DateField(required=True)
-    user = serializers.HiddenField(
-        default=serializers.CurrentUserDefault()
-    )
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = Borrowing
@@ -65,13 +64,24 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         with transaction.atomic():
             borrowing = Borrowing.objects.create(**validated_data)
-            session = create_stripe_session(
-                borrowing,
-                self.context["request"].build_absolute_uri(),
-                borrowing.borrow_date,
-                borrowing.expected_return_date,
-                is_fine=False,
-            )
+            if STRIPE_PUBLIC_KEY:
+                session = create_stripe_session(
+                    borrowing,
+                    self.context["request"].build_absolute_uri(),
+                    borrowing.borrow_date,
+                    borrowing.expected_return_date,
+                    is_fine=False,
+                )
+            else:
+                session = {
+                    "url": None,
+                    "id": None,
+                    "amount_total": (
+                        borrowing.expected_return_date - borrowing.borrow_date
+                    ).days
+                    * borrowing.book.daily_fee
+                    * 100,
+                }
             Payment.objects.create(
                 status="PENDING",
                 type="PAYMENT",

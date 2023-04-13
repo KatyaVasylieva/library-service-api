@@ -13,6 +13,7 @@ from borrowings.models import Borrowing, Payment
 from borrowings.serializers import BorrowingSerializer
 from borrowings.stripe import FINE_MULTIPLIER
 from borrowings.tasks import check_overdue_borrowings
+from library_service_api.settings import STRIPE_PUBLIC_KEY
 
 BORROWING_URL = reverse("borrowings:borrowing-list")
 
@@ -211,8 +212,12 @@ class AuthenticatedBorrowingApiTests(TestCase):
         self.assertEqual(payment.status, "PENDING")
         self.assertEqual(payment.type, "PAYMENT")
 
-        self.assertIsNotNone(payment.session_id)
-        self.assertIsNotNone(payment.session_url)
+        if STRIPE_PUBLIC_KEY:
+            self.assertIsNotNone(payment.session_id)
+            self.assertIsNotNone(payment.session_url)
+        else:
+            self.assertIsNone(payment.session_id)
+            self.assertIsNone(payment.session_url)
 
     def test_create_fine_payment_if_borrowing_was_returned_after_expected_date(self):
         payload = {

@@ -6,7 +6,11 @@ import stripe
 from django.db.models import QuerySet
 
 from borrowings.models import Borrowing, Payment
-from library_service_api.settings import TELEGRAM_TOKEN, CHAT_ID
+from library_service_api.settings import (
+    TELEGRAM_TOKEN,
+    CHAT_ID,
+    STRIPE_PUBLIC_KEY
+)
 
 
 def scrape_overdue_borrowings() -> QuerySet:
@@ -56,12 +60,13 @@ def scrape_expired_payments() -> None:
     For pending payments checks if the session is expired
     and marks payment as expired
     """
-    now = time.time()
-    pending_payments = Payment.objects.filter(status="PENDING")
-    for payment in pending_payments:
-        expires_at = stripe.checkout.Session.retrieve(
-            payment.session_id
-        )["expires_at"]
-        if now > expires_at:
-            payment.status = "EXPIRED"
-            payment.save()
+    if STRIPE_PUBLIC_KEY:
+        now = time.time()
+        pending_payments = Payment.objects.filter(status="PENDING")
+        for payment in pending_payments:
+            expires_at = stripe.checkout.Session.retrieve(payment.session_id)[
+                "expires_at"
+            ]
+            if now > expires_at:
+                payment.status = "EXPIRED"
+                payment.save()

@@ -13,6 +13,9 @@ import os
 from datetime import timedelta
 from pathlib import Path
 from dotenv import load_dotenv
+
+from library_service_api.env_handler import env_custom_value_or_none
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
@@ -165,11 +168,7 @@ SIMPLE_JWT = {
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 
-chat_id_input = os.environ["CHAT_ID"]
-if chat_id_input == "CHAT_ID":
-    CHAT_ID = None
-else:
-    CHAT_ID = chat_id_input
+CHAT_ID = env_custom_value_or_none("CHAT_ID")
 
 CELERY_BROKER_URL = os.environ["CELERY_BROKER_URL"]
 CELERY_RESULT_BACKEND = os.environ["CELERY_RESULT_BACKEND"]
@@ -177,8 +176,8 @@ CELERY_TIMEZONE = "Europe/Kyiv"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
-STRIPE_PUBLIC_KEY = os.environ["STRIPE_PUBLIC_KEY"]
-STRIPE_SECRET_KEY = os.environ["STRIPE_SECRET_KEY"]
+STRIPE_PUBLIC_KEY = env_custom_value_or_none("STRIPE_PUBLIC_KEY")
+STRIPE_SECRET_KEY = env_custom_value_or_none("STRIPE_SECRET_KEY")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Library Service API",

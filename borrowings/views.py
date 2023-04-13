@@ -1,8 +1,6 @@
-import os
 from decimal import Decimal
 from typing import Any
 
-import requests
 import stripe
 from django.db import transaction
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -22,7 +20,8 @@ from borrowings.serializers import (
     PaymentSerializer,
     PaymentRenewSerializer,
 )
-from borrowings.stripe import create_stripe_session
+from borrowings.stripe import create_stripe_session, FINE_MULTIPLIER
+from library_service_api.settings import STRIPE_PUBLIC_KEY
 from users.models import User
 
 
@@ -84,13 +83,15 @@ class BorrowingViewSet(
                 name="user_id",
                 description="For admins - filter by user_id (ex. '?user_id=1)",
                 required=False,
-                type=int),
+                type=int,
+            ),
             OpenApiParameter(
                 name="is_active",
                 description="Filter by active borrowings "
                             "(ex. ?is_active=True)",
                 required=False,
-                type=str),
+                type=str,
+            ),
         ],
     )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
@@ -145,13 +146,26 @@ class BorrowingViewSet(
                 borrowing_updated.expected_return_date
                 < borrowing_updated.actual_return_date
             ):
-                session = create_stripe_session(
-                    borrowing_updated,
-                    request.build_absolute_uri(),
-                    borrowing_updated.expected_return_date,
-                    borrowing.actual_return_date,
-                    is_fine=True,
-                )
+                if STRIPE_PUBLIC_KEY:
+                    session = create_stripe_session(
+                        borrowing_updated,
+                        request.build_absolute_uri(),
+                        borrowing_updated.expected_return_date,
+                        borrowing.actual_return_date,
+                        is_fine=True,
+                    )
+                else:
+                    session = {
+                        "url": None,
+                        "id": None,
+                        "amount_total": (
+                            borrowing.actual_return_date
+                            - borrowing.expected_return_date
+                        ).days
+                        * borrowing.book.daily_fee
+                        * FINE_MULTIPLIER
+                        * 100,
+                    }
                 Payment.objects.create(
                     status="PENDING",
                     type="FINE",
