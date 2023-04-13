@@ -164,7 +164,12 @@ SIMPLE_JWT = {
 }
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
-CHAT_ID = os.environ["CHAT_ID"]
+
+chat_id_input = os.environ["CHAT_ID"]
+if chat_id_input == "CHAT_ID":
+    CHAT_ID = None
+else:
+    CHAT_ID = chat_id_input
 
 CELERY_BROKER_URL = os.environ["CELERY_BROKER_URL"]
 CELERY_RESULT_BACKEND = os.environ["CELERY_RESULT_BACKEND"]

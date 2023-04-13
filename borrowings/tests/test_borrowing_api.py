@@ -92,15 +92,15 @@ class AuthenticatedBorrowingApiTests(TestCase):
         response = self.client.get(detail_url(self.another_user.borrowings.first().id))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_create_borrowing_expected_return_date_before_borrow(self):
+    def test_create_borrowing_expected_return_date_before_borrow_should_fail(self):
         payload = {
             "borrow_date": "2023-01-04",
             "expected_return_date": "2023-01-01",
             "book": self.book.id,
         }
 
-        with self.assertRaises(IntegrityError):
-            self.client.post(BORROWING_URL, payload)
+        response = self.client.post(BORROWING_URL, payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_borrowing_of_book_with_inventory_0(self):
         book = sample_book(title="Harry Potter 2", inventory=0)
@@ -168,11 +168,12 @@ class AuthenticatedBorrowingApiTests(TestCase):
         active_borrowing = sample_borrowing(
             actual_return_date=None, user=self.user, book=self.book
         )
-        with self.assertRaises(IntegrityError):
-            self.client.post(
-                os.path.join(detail_url(active_borrowing.id), "return/"),
-                {"actual_return_date": "2022-12-12"},
-            )
+
+        response = self.client.post(
+            os.path.join(detail_url(active_borrowing.id), "return/"),
+            {"actual_return_date": "2022-12-12"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_sending_notifications_when_borrowing_creation(self):
         payload = {

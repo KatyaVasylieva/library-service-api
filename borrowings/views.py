@@ -34,11 +34,7 @@ def send_borrowing_create_message(
         f"User {user.email} have just borrowed a {book.title} book. "
         f"It is expected to be returned 'till {expected_return_date}."
     )
-    url = (
-        f"https://api.telegram.org/bot{os.environ['TELEGRAM_TOKEN']}/"
-        f"sendMessage?chat_id={os.environ['CHAT_ID']}&text={message}"
-    )
-    requests.get(url)
+    send_notification(message)
 
 
 class BorrowingViewSet(

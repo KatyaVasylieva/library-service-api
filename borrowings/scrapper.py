@@ -24,11 +24,12 @@ def send_notification(message: str) -> None:
     """
     Sends a message to admin
     """
-    url = (
-        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/"
-        f"sendMessage?chat_id={CHAT_ID}&text={message}"
-    )
-    requests.get(url)
+    if CHAT_ID:
+        url = (
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/"
+            f"sendMessage?chat_id={CHAT_ID}&text={message}"
+        )
+        requests.get(url)
 
 
 def send_notification_about_overdue() -> None:
