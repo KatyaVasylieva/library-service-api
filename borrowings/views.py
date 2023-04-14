@@ -26,7 +26,7 @@ from users.models import User
 
 
 def send_borrowing_create_message(
-    user: User, book: Book, expected_return_date: str
+        user: User, book: Book, expected_return_date: str
 ) -> None:
     """Sends a message while creating a borrowing with detailed info"""
     message = (
@@ -143,8 +143,8 @@ class BorrowingViewSet(
                 borrowing.book.save()
 
             if (
-                borrowing_updated.expected_return_date
-                < borrowing_updated.actual_return_date
+                    borrowing_updated.expected_return_date
+                    < borrowing_updated.actual_return_date
             ):
                 if STRIPE_PUBLIC_KEY:
                     session = create_stripe_session(
@@ -159,12 +159,12 @@ class BorrowingViewSet(
                         "url": None,
                         "id": None,
                         "amount_total": (
-                            borrowing.actual_return_date
-                            - borrowing.expected_return_date
-                        ).days
-                        * borrowing.book.daily_fee
-                        * FINE_MULTIPLIER
-                        * 100,
+                                                borrowing.actual_return_date
+                                                - borrowing.expected_return_date
+                                        ).days
+                                        * borrowing.book.daily_fee
+                                        * FINE_MULTIPLIER
+                                        * 100,
                     }
                 Payment.objects.create(
                     status="PENDING",
@@ -212,8 +212,8 @@ class BorrowingViewSet(
         return Response(
             {
                 "Cancel": f"The payment for the {borrowing} is cancelled. "
-                f"Make sure to pay during 24 hours. Payment url: "
-                f"{session.url}. Thanks!"
+                          f"Make sure to pay during 24 hours. Payment url: "
+                          f"{session.url}. Thanks!"
             },
             status=status.HTTP_200_OK,
         )

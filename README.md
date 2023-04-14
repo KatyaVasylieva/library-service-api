@@ -29,10 +29,8 @@ Or you can create your own telegram bot through the BotFather - https://t.me/Bot
 
 ### How to run:
 - Rename ".env.sample" into ".env" and populate with all required data.
-- `docker-compose up --build`
-- Get the id of "library_service_api-web" container by running `docker ps`
-- Load test data by running `docker exec -it <container_id>  python manage.py loaddata test_data.json`.
+- `docker-compose up --build`.
 
-Test data already includes implemented periodic tasks. Use this admin user to explore the functionality:
+Use this admin user to explore the functionality:
 * Username: `admin@test.com`
 * Password: `testpassword`

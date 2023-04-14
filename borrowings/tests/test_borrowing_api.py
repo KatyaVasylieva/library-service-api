@@ -2,7 +2,6 @@ import os
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -184,7 +183,7 @@ class AuthenticatedBorrowingApiTests(TestCase):
         }
 
         with patch(
-            "borrowings.views.send_borrowing_create_message"
+                "borrowings.views.send_borrowing_create_message"
         ) as mock_send_message:
             self.client.post(BORROWING_URL, payload)
             mock_send_message.assert_called_once_with(

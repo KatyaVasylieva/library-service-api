@@ -54,7 +54,7 @@ class AuthenticatedBorrowingApiTests(TestCase):
 
     @patch("stripe.checkout.Session.retrieve")
     def test_change_payment_status_when_session_is_paid_successfully(
-        self, session_mock
+            self, session_mock
     ):
         if STRIPE_PUBLIC_KEY:
             payload = {

@@ -10,13 +10,12 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 def create_stripe_session(
-    borrowing: Borrowing,
-    abs_url: str,
-    start_date: date,
-    end_date: date,
-    is_fine: bool,
+        borrowing: Borrowing,
+        abs_url: str,
+        start_date: date,
+        end_date: date,
+        is_fine: bool,
 ) -> stripe.checkout.Session:
-
     to_pay = (end_date - start_date).days * borrowing.book.daily_fee
     product = ""
     if is_fine:
@@ -41,9 +40,9 @@ def create_stripe_session(
         ],
         mode="payment",
         success_url=abs_url
-        + "/success?session_id={CHECKOUT_SESSION_ID}",
+                    + "/success?session_id={CHECKOUT_SESSION_ID}",
         cancel_url=abs_url
-        + "/cancel?session_id={CHECKOUT_SESSION_ID}",
+                   + "/cancel?session_id={CHECKOUT_SESSION_ID}",
     )
 
     return checkout_session

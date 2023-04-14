@@ -22,8 +22,8 @@ class Borrowing(models.Model):
             models.CheckConstraint(
                 name="borrow_date_before_return_date",
                 check=(
-                    Q(borrow_date__lte=F("expected_return_date"))
-                    & Q(borrow_date__lte=F("actual_return_date"))
+                        Q(borrow_date__lte=F("expected_return_date"))
+                        & Q(borrow_date__lte=F("actual_return_date"))
                 ),
             )
         ]
