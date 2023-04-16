@@ -1,6 +1,7 @@
 import os
 from unittest.mock import patch
 
+import stripe
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -82,6 +83,32 @@ class AuthenticatedBorrowingApiTests(TestCase):
             self.assertEqual(res.status_code, status.HTTP_200_OK)
             payment.refresh_from_db()
             self.assertEqual(payment.status, "PAID")
+
+    def test_renew_payment_if_stripe_connected(self):
+        if STRIPE_PUBLIC_KEY:
+            payload = {
+                "borrow_date": "2023-01-01",
+                "expected_return_date": "2023-01-04",
+                "book": self.book.id,
+            }
+
+            self.client.post(BORROWING_URL, payload)
+            borrowing = Borrowing.objects.last()
+            payment = borrowing.payments.first()
+
+            self.assertEqual(payment.status, "PENDING")
+            payment.status = "EXPIRED"
+            payment.save()
+            expired_session_id = payment.session_id
+            self.client.post(
+                os.path.join(reverse("borrowings:payment-detail", args=[payment.id]), "renew/"), {}
+            )
+            payment.refresh_from_db()
+            new_session = stripe.checkout.Session.retrieve(payment.session_id)
+
+            self.assertNotEqual(expired_session_id, new_session)
+            self.assertEqual(new_session["status"], "open")
+            self.assertEqual(payment.status, "PENDING")
 
 
 class AdminBorrowingApiTests(TestCase):

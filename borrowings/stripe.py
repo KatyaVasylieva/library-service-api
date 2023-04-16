@@ -21,10 +21,8 @@ def create_stripe_session(
     if is_fine:
         to_pay *= FINE_MULTIPLIER
         product = "Fine for "
-        abs_url = abs_url.rsplit("/", 2)[0]
-    else:
-        abs_url = abs_url + str(borrowing.id)
 
+    abs_url = abs_url.rsplit("/", 2)[0] + "/borrowings/" + str(borrowing.id)
     checkout_session = stripe.checkout.Session.create(
         line_items=[
             {

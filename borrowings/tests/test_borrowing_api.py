@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -23,7 +24,7 @@ def detail_url(borrowing_id):
 
 def sample_book(**params):
     defaults = {
-        "title": "Harry Potter",
+        "title": "Harry Potter 2",
         "author": "J.K. Rowling",
         "cover": "HARD",
         "inventory": 5,
@@ -103,7 +104,7 @@ class AuthenticatedBorrowingApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_borrowing_of_book_with_inventory_0(self):
-        book = sample_book(title="Harry Potter 2", inventory=0)
+        book = sample_book(title="Harry Potter 3", inventory=0)
         payload = {
             "borrow_date": "2023-01-01",
             "expected_return_date": "2023-01-04",
@@ -183,11 +184,11 @@ class AuthenticatedBorrowingApiTests(TestCase):
         }
 
         with patch(
-                "borrowings.views.send_borrowing_create_message"
+                "borrowings.serializers.send_borrowing_create_message"
         ) as mock_send_message:
             self.client.post(BORROWING_URL, payload)
             mock_send_message.assert_called_once_with(
-                self.user, self.book, "2023-01-04"
+                self.user, self.book, datetime.strptime("2023-01-04", "%Y-%m-%d").date()
             )
 
     def test_task_borrowings_overdue(self):
@@ -245,6 +246,15 @@ class AuthenticatedBorrowingApiTests(TestCase):
             * FINE_MULTIPLIER
             * borrowing.book.daily_fee,
         )
+
+        payments_len = borrowing.payments.count()
+        response = self.client.post(
+            os.path.join(detail_url(borrowing.id), "return/"),
+            {"actual_return_date": "2023-04-07"},
+        )
+        borrowing.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(len(borrowing.payments.all()), payments_len)
 
 
 class AdminBorrowingApiTests(TestCase):

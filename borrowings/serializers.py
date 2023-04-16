@@ -1,13 +1,28 @@
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 
+from books.models import Book
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing, Payment
-from borrowings.stripe import create_stripe_session
+from borrowings.scrapper import send_notification
+from borrowings.stripe import create_stripe_session, FINE_MULTIPLIER
 from library_service_api.settings import STRIPE_PUBLIC_KEY
+from users.models import User
+
+
+def send_borrowing_create_message(
+        user: User, book: Book, expected_return_date: date
+) -> None:
+    """Sends a message while creating a borrowing with detailed info"""
+    message = (
+        f"User {user.email} have just borrowed a {book.title} book. "
+        f"It is expected to be returned 'till {expected_return_date.strftime('%Y-%m-%d')}."
+    )
+    send_notification(message)
 
 
 class BorrowingSerializer(serializers.ModelSerializer):
@@ -64,6 +79,10 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         with transaction.atomic():
             borrowing = Borrowing.objects.create(**validated_data)
+            book = borrowing.book
+            book.inventory -= 1
+            book.save()
+
             if STRIPE_PUBLIC_KEY:
                 session = create_stripe_session(
                     borrowing,
@@ -77,10 +96,10 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
                     "url": None,
                     "id": None,
                     "amount_total": (
-                        borrowing.expected_return_date - borrowing.borrow_date
-                    ).days
-                    * borrowing.book.daily_fee
-                    * 100,
+                                            borrowing.expected_return_date - borrowing.borrow_date
+                                    ).days
+                                    * borrowing.book.daily_fee
+                                    * 100,
                 }
             Payment.objects.create(
                 status="PENDING",
@@ -90,6 +109,13 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
                 session_id=session["id"],
                 to_pay=Decimal(session["amount_total"] / 100),
             )
+
+            send_borrowing_create_message(
+                borrowing.user,
+                book,
+                borrowing.expected_return_date
+            )
+
             return borrowing
 
 
@@ -108,6 +134,49 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
                 "Borrow date cannot be after return date."
             )
         return value
+
+    def update(self, instance, validated_data):
+
+        was_not_returned = instance.actual_return_date
+        if not was_not_returned:
+            instance.book.inventory += 1
+            instance.book.save()
+        instance.actual_return_date = validated_data["actual_return_date"]
+        instance.save()
+
+        if (
+                instance.actual_return_date - instance.expected_return_date > timedelta(0)
+        ):
+            if STRIPE_PUBLIC_KEY:
+                session = create_stripe_session(
+                    instance,
+                    self.context["request"].build_absolute_uri(),
+                    instance.expected_return_date,
+                    instance.actual_return_date,
+                    is_fine=True,
+                )
+            else:
+                session = {
+                    "url": None,
+                    "id": None,
+                    "amount_total": (
+                                            instance.actual_return_date
+                                            - instance.expected_return_date
+                                    ).days
+                                    * instance.book.daily_fee
+                                    * FINE_MULTIPLIER
+                                    * 100,
+                }
+            Payment.objects.create(
+                status="PENDING",
+                type="FINE",
+                borrowing=instance,
+                session_url=session["url"],
+                session_id=session["id"],
+                to_pay=Decimal(session["amount_total"] / 100),
+            )
+
+        return instance
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -132,3 +201,31 @@ class PaymentRenewSerializer(serializers.ModelSerializer):
         model = Payment
         fields = ("id",)
         read_only_fields = ("id",)
+
+    def update(self, instance, validated_data):
+        borrowing = instance.borrowing
+
+        if instance.status == "EXPIRED":
+            if instance.type == "PAYMENT":
+                session = create_stripe_session(
+                    borrowing,
+                    self.context["request"].build_absolute_uri().rsplit("/", 2)[0],
+                    borrowing.borrow_date,
+                    borrowing.expected_return_date,
+                    is_fine=False,
+                )
+            else:
+                session = create_stripe_session(
+                    borrowing,
+                    self.context["request"].build_absolute_uri().rsplit("/", 2)[0],
+                    borrowing.expected_return_date,
+                    borrowing.actual_return_date,
+                    is_fine=True,
+                )
+
+            instance.session_id = session["id"]
+            instance.session_url = session["url"]
+            instance.status = "PENDING"
+            instance.save()
+
+        return instance
