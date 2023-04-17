@@ -1,15 +1,17 @@
 from typing import Any
 
 import stripe
-from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
+from drf_spectacular.utils import (
+    OpenApiParameter, extend_schema, extend_schema_view
+)
 from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from borrowings.messenger import send_notification
 from borrowings.models import Borrowing, Payment
-from borrowings.scrapper import send_notification
 from borrowings.serializers import (
     BorrowingSerializer,
     BorrowingCreateSerializer,
@@ -21,12 +23,17 @@ from borrowings.serializers import (
 
 @extend_schema_view(
     list=extend_schema(description=(
-            "Endpoint for getting all the borrowings "
-            "(ordinary user will see only his borrowings, admin will see all of them)."
+        "Endpoint for getting all the borrowings "
+        "(ordinary user will see only his borrowings, "
+        "admin will see all of them)."
     )
     ),
-    retrieve=extend_schema(description="Endpoint for getting a specific borrowing."),
-    create=extend_schema(description="Endpoint for creating a new borrowing."),
+    retrieve=extend_schema(
+        description="Endpoint for getting a specific borrowing."
+    ),
+    create=extend_schema(
+        description="Endpoint for creating a new borrowing."
+    ),
 )
 class BorrowingViewSet(
     mixins.ListModelMixin,
@@ -73,15 +80,18 @@ class BorrowingViewSet(
         parameters=[
             OpenApiParameter(
                 name="user_id",
-                description="For admins - filter by user_id (ex. '?user_id=1).",
+                description=(
+                    "For admins - filter by user_id "
+                    "(ex. '?user_id=1)."
+                ),
                 required=False,
                 type=int,
             ),
             OpenApiParameter(
                 name="is_active",
                 description=(
-                        "Filter by active borrowings "
-                        "(ex. ?is_active=True)."
+                    "Filter by active borrowings "
+                    "(ex. ?is_active=True)."
                 ),
                 required=False,
                 type=str,
@@ -104,9 +114,6 @@ class BorrowingViewSet(
     def return_book(self, request, pk=None):
         """Endpoint for returning a book and closing the specific borrowing."""
         borrowing = self.get_object()
-        was_not_returned = borrowing.actual_return_date
-        if was_not_returned is not None:
-            return Response("This borrowing was already returned.", status=status.HTTP_400_BAD_REQUEST)
         serializer = self.get_serializer(borrowing, data=request.data)
 
         serializer.is_valid(raise_exception=True)
@@ -157,12 +164,16 @@ class BorrowingViewSet(
 
 
 @extend_schema_view(
-    list=extend_schema(description=(
+    list=extend_schema(
+        description=(
             "Endpoint for getting all the payments "
-            "(ordinary user will see only his payments, admin will see all of them)."
-    )
+            "(ordinary user will see only his payments, "
+            "admin will see all of them)."
+        )
     ),
-    retrieve=extend_schema(description="Endpoint for getting a specific payment."),
+    retrieve=extend_schema(
+        description="Endpoint for getting a specific payment."
+    ),
 )
 class PaymentViewSet(
     mixins.ListModelMixin,
@@ -196,8 +207,8 @@ class PaymentViewSet(
     )
     def renew(self, request, pk=None):
         """
-        Endpoint for creating a new payment session if the current one is expired.
-        Will not update the session that is not expired.
+        Endpoint for creating a new payment session if the current one
+        is expired. Will not update the session that is not expired.
         """
         payment = self.get_object()
         old_session_id = payment.session_id

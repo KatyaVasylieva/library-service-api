@@ -192,7 +192,7 @@ class AuthenticatedBorrowingApiTests(TestCase):
             )
 
     def test_task_borrowings_overdue(self):
-        with patch("borrowings.scrapper.send_notification") as mock_send_notification:
+        with patch("requests.get") as mock_send_notification:
             check_overdue_borrowings()
             mock_send_notification.assert_called()
 

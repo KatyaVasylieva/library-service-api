@@ -1,28 +1,15 @@
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 
-from books.models import Book
 from books.serializers import BookSerializer
+from borrowings.messenger import send_borrowing_create_message
 from borrowings.models import Borrowing, Payment
-from borrowings.scrapper import send_notification
 from borrowings.stripe import create_stripe_session, FINE_MULTIPLIER
 from library_service_api.settings import STRIPE_PUBLIC_KEY
-from users.models import User
-
-
-def send_borrowing_create_message(
-        user: User, book: Book, expected_return_date: date
-) -> None:
-    """Sends a message while creating a borrowing with detailed info"""
-    message = (
-        f"User {user.email} have just borrowed a {book.title} book. "
-        f"It is expected to be returned 'till {expected_return_date.strftime('%Y-%m-%d')}."
-    )
-    send_notification(message)
 
 
 class BorrowingSerializer(serializers.ModelSerializer):
@@ -127,7 +114,13 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
     def validate_actual_return_date(self, value):
         """
         Validates that borrow date is before actual return date.
+        Also validates if the borrowing was not returned earlier.
         """
+
+        if self.instance.actual_return_date is not None:
+            raise serializers.ValidationError(
+                "This borrowing was already returned."
+            )
 
         if value < self.instance.borrow_date:
             raise serializers.ValidationError(
@@ -141,6 +134,8 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
         if not was_not_returned:
             instance.book.inventory += 1
             instance.book.save()
+        # else:
+        # raise
         instance.actual_return_date = validated_data["actual_return_date"]
         instance.save()
 
@@ -160,12 +155,12 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
                     "url": None,
                     "id": None,
                     "amount_total": (
-                                            instance.actual_return_date
-                                            - instance.expected_return_date
-                                    ).days
-                                    * instance.book.daily_fee
-                                    * FINE_MULTIPLIER
-                                    * 100,
+                                instance.actual_return_date
+                                - instance.expected_return_date
+                        ).days
+                        * instance.book.daily_fee
+                        * FINE_MULTIPLIER
+                        * 100,
                 }
             Payment.objects.create(
                 status="PENDING",
