@@ -1,7 +1,7 @@
 from typing import Any
 
 import stripe
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -19,6 +19,15 @@ from borrowings.serializers import (
 )
 
 
+@extend_schema_view(
+    list=extend_schema(description=(
+            "Endpoint for getting all the borrowings "
+            "(ordinary user will see only his borrowings, admin will see all of them)."
+    )
+    ),
+    retrieve=extend_schema(description="Endpoint for getting a specific borrowing."),
+    create=extend_schema(description="Endpoint for creating a new borrowing."),
+)
 class BorrowingViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
@@ -64,14 +73,16 @@ class BorrowingViewSet(
         parameters=[
             OpenApiParameter(
                 name="user_id",
-                description="For admins - filter by user_id (ex. '?user_id=1)",
+                description="For admins - filter by user_id (ex. '?user_id=1).",
                 required=False,
                 type=int,
             ),
             OpenApiParameter(
                 name="is_active",
-                description="Filter by active borrowings "
-                            "(ex. ?is_active=True)",
+                description=(
+                        "Filter by active borrowings "
+                        "(ex. ?is_active=True)."
+                ),
                 required=False,
                 type=str,
             ),
@@ -91,7 +102,7 @@ class BorrowingViewSet(
         url_path="return",
     )
     def return_book(self, request, pk=None):
-        """Endpoint for returning book and closing the specific borrowing"""
+        """Endpoint for returning a book and closing the specific borrowing."""
         borrowing = self.get_object()
         was_not_returned = borrowing.actual_return_date
         if was_not_returned is not None:
@@ -109,7 +120,7 @@ class BorrowingViewSet(
         url_path="success",
     )
     def borrowing_is_successfully_paid(self, request, pk=None):
-        """Success endpoint after paying for the borrowing"""
+        """Success endpoint after paying for the borrowing."""
         borrowing = self.get_object()
         session_id = request.query_params.get("session_id")
         payment = Payment.objects.get(session_id=session_id)
@@ -131,7 +142,7 @@ class BorrowingViewSet(
         url_path="cancel",
     )
     def borrowing_payment_is_cancelled(self, request, pk=None):
-        """Cancel endpoint for borrowing payment"""
+        """Cancel endpoint for borrowing payment."""
         borrowing = self.get_object()
         session_id = request.query_params.get("session_id")
         session = stripe.checkout.Session.retrieve(session_id)
@@ -145,6 +156,14 @@ class BorrowingViewSet(
         )
 
 
+@extend_schema_view(
+    list=extend_schema(description=(
+            "Endpoint for getting all the payments "
+            "(ordinary user will see only his payments, admin will see all of them)."
+    )
+    ),
+    retrieve=extend_schema(description="Endpoint for getting a specific payment."),
+)
 class PaymentViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -176,6 +195,10 @@ class PaymentViewSet(
         url_path="renew",
     )
     def renew(self, request, pk=None):
+        """
+        Endpoint for creating a new payment session if the current one is expired.
+        Will not update the session that is not expired.
+        """
         payment = self.get_object()
         old_session_id = payment.session_id
         serializer = self.get_serializer(payment, data=request.data)
