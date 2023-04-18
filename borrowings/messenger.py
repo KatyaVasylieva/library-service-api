@@ -20,7 +20,7 @@ def send_notification(message: str) -> None:
 
 
 def send_borrowing_create_message(
-        user: User, book: Book, expected_return_date: date
+    user: User, book: Book, expected_return_date: date
 ) -> None:
     """Sends a message while creating a borrowing with detailed info"""
     message = (

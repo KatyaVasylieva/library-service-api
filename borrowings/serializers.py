@@ -83,10 +83,10 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
                     "url": None,
                     "id": None,
                     "amount_total": (
-                                            borrowing.expected_return_date - borrowing.borrow_date
-                                    ).days
-                                    * borrowing.book.daily_fee
-                                    * 100,
+                        borrowing.expected_return_date - borrowing.borrow_date
+                    ).days
+                    * borrowing.book.daily_fee
+                    * 100,
                 }
             Payment.objects.create(
                 status="PENDING",
@@ -98,9 +98,7 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
             )
 
             send_borrowing_create_message(
-                borrowing.user,
-                book,
-                borrowing.expected_return_date
+                borrowing.user, book, borrowing.expected_return_date
             )
 
             return borrowing
@@ -118,9 +116,7 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
         """
 
         if self.instance.actual_return_date is not None:
-            raise serializers.ValidationError(
-                "This borrowing was already returned."
-            )
+            raise serializers.ValidationError("This borrowing was already returned.")
 
         if value < self.instance.borrow_date:
             raise serializers.ValidationError(
@@ -129,19 +125,14 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
         return value
 
     def update(self, instance, validated_data):
-
         was_not_returned = instance.actual_return_date
         if not was_not_returned:
             instance.book.inventory += 1
             instance.book.save()
-        # else:
-        # raise
         instance.actual_return_date = validated_data["actual_return_date"]
         instance.save()
 
-        if (
-                instance.actual_return_date - instance.expected_return_date > timedelta(0)
-        ):
+        if instance.actual_return_date - instance.expected_return_date > timedelta(0):
             if STRIPE_PUBLIC_KEY:
                 session = create_stripe_session(
                     instance,
@@ -155,12 +146,11 @@ class BorrowingReturnSerializer(serializers.ModelSerializer):
                     "url": None,
                     "id": None,
                     "amount_total": (
-                                instance.actual_return_date
-                                - instance.expected_return_date
-                        ).days
-                        * instance.book.daily_fee
-                        * FINE_MULTIPLIER
-                        * 100,
+                        instance.actual_return_date - instance.expected_return_date
+                    ).days
+                    * instance.book.daily_fee
+                    * FINE_MULTIPLIER
+                    * 100,
                 }
             Payment.objects.create(
                 status="PENDING",

@@ -55,7 +55,7 @@ class AuthenticatedBorrowingApiTests(TestCase):
 
     @patch("stripe.checkout.Session.retrieve")
     def test_change_payment_status_when_session_is_paid_successfully(
-            self, session_mock
+        self, session_mock
     ):
         if STRIPE_PUBLIC_KEY:
             payload = {
@@ -101,7 +101,10 @@ class AuthenticatedBorrowingApiTests(TestCase):
             payment.save()
             expired_session_id = payment.session_id
             self.client.post(
-                os.path.join(reverse("borrowings:payment-detail", args=[payment.id]), "renew/"), {}
+                os.path.join(
+                    reverse("borrowings:payment-detail", args=[payment.id]), "renew/"
+                ),
+                {},
             )
             payment.refresh_from_db()
             new_session = stripe.checkout.Session.retrieve(payment.session_id)

@@ -1,9 +1,7 @@
 from typing import Any
 
 import stripe
-from drf_spectacular.utils import (
-    OpenApiParameter, extend_schema, extend_schema_view
-)
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -22,18 +20,15 @@ from borrowings.serializers import (
 
 
 @extend_schema_view(
-    list=extend_schema(description=(
-        "Endpoint for getting all the borrowings "
-        "(ordinary user will see only his borrowings, "
-        "admin will see all of them)."
-    )
+    list=extend_schema(
+        description=(
+            "Endpoint for getting all the borrowings "
+            "(ordinary user will see only his borrowings, "
+            "admin will see all of them)."
+        )
     ),
-    retrieve=extend_schema(
-        description="Endpoint for getting a specific borrowing."
-    ),
-    create=extend_schema(
-        description="Endpoint for creating a new borrowing."
-    ),
+    retrieve=extend_schema(description="Endpoint for getting a specific borrowing."),
+    create=extend_schema(description="Endpoint for creating a new borrowing."),
 )
 class BorrowingViewSet(
     mixins.ListModelMixin,
@@ -41,9 +36,7 @@ class BorrowingViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = Borrowing.objects.select_related(
-        "book", "user"
-    ).prefetch_related(
+    queryset = Borrowing.objects.select_related("book", "user").prefetch_related(
         "payments"
     )
     permission_classes = (IsAuthenticated,)
@@ -52,15 +45,12 @@ class BorrowingViewSet(
         if self.action == "create":
             return BorrowingCreateSerializer
 
-        if self.action == "return_book":
-            return BorrowingReturnSerializer
-
         return BorrowingSerializer
 
     def get_queryset(self):
+        queryset = super().get_queryset()
         user_id = self.request.query_params.get("user_id")
         is_active = self.request.query_params.get("is_active")
-        queryset = self.queryset.all()
 
         if self.request.user.is_superuser:
             if user_id:
@@ -70,9 +60,7 @@ class BorrowingViewSet(
             queryset = queryset.filter(user=self.request.user)
 
         if is_active:
-            queryset = queryset.filter(
-                actual_return_date__isnull=eval(is_active)
-            )
+            queryset = queryset.filter(actual_return_date__isnull=eval(is_active))
 
         return queryset
 
@@ -80,19 +68,13 @@ class BorrowingViewSet(
         parameters=[
             OpenApiParameter(
                 name="user_id",
-                description=(
-                    "For admins - filter by user_id "
-                    "(ex. '?user_id=1)."
-                ),
+                description=("For admins - filter by user_id " "(ex. '?user_id=1)."),
                 required=False,
                 type=int,
             ),
             OpenApiParameter(
                 name="is_active",
-                description=(
-                    "Filter by active borrowings "
-                    "(ex. ?is_active=True)."
-                ),
+                description=("Filter by active borrowings " "(ex. ?is_active=True)."),
                 required=False,
                 type=str,
             ),
@@ -101,20 +83,17 @@ class BorrowingViewSet(
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(self, request, *args, **kwargs)
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context.update({"request": self.request})
-        return context
-
     @action(
         methods=["POST"],
         detail=True,
         url_path="return",
+        serializer_class=BorrowingReturnSerializer,
     )
     def return_book(self, request, pk=None):
         """Endpoint for returning a book and closing the specific borrowing."""
-        borrowing = self.get_object()
-        serializer = self.get_serializer(borrowing, data=request.data)
+        serializer = self.serializer_class(
+            self.get_object(), data=request.data, context={"request": request}
+        )
 
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -139,8 +118,7 @@ class BorrowingViewSet(
             serializer = self.get_serializer(borrowing)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(
-            {"Fail": "Payment wasn't successful."},
-            status=status.HTTP_400_BAD_REQUEST
+            {"Fail": "Payment wasn't successful."}, status=status.HTTP_400_BAD_REQUEST
         )
 
     @action(
@@ -156,8 +134,8 @@ class BorrowingViewSet(
         return Response(
             {
                 "Cancel": f"The payment for the {borrowing} is cancelled. "
-                          f"Make sure to pay during 24 hours. Payment url: "
-                          f"{session.url}. Thanks!"
+                f"Make sure to pay during 24 hours. Payment url: "
+                f"{session.url}. Thanks!"
             },
             status=status.HTTP_200_OK,
         )
@@ -171,9 +149,7 @@ class BorrowingViewSet(
             "admin will see all of them)."
         )
     ),
-    retrieve=extend_schema(
-        description="Endpoint for getting a specific payment."
-    ),
+    retrieve=extend_schema(description="Endpoint for getting a specific payment."),
 )
 class PaymentViewSet(
     mixins.ListModelMixin,
@@ -193,7 +169,7 @@ class PaymentViewSet(
         return PaymentSerializer
 
     def get_queryset(self):
-        queryset = self.queryset.all()
+        queryset = super().get_queryset()
 
         if not self.request.user.is_superuser:
             queryset = queryset.filter(borrowing__user=self.request.user)
@@ -204,6 +180,7 @@ class PaymentViewSet(
         methods=["POST"],
         detail=True,
         url_path="renew",
+        serializer_class=PaymentRenewSerializer,
     )
     def renew(self, request, pk=None):
         """
@@ -226,8 +203,6 @@ class PaymentViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(
-            {
-                "Payment session is successfully updated!"
-            },
+            {"Payment session is successfully updated!"},
             status=status.HTTP_200_OK,
         )

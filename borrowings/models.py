@@ -10,20 +10,16 @@ class Borrowing(models.Model):
     borrow_date = models.DateField()
     expected_return_date = models.DateField()
     actual_return_date = models.DateField(blank=True, null=True)
-    book = models.ForeignKey(
-        Book, on_delete=DO_NOTHING, related_name="borrowings"
-    )
-    user = models.ForeignKey(
-        User, on_delete=DO_NOTHING, related_name="borrowings"
-    )
+    book = models.ForeignKey(Book, on_delete=DO_NOTHING, related_name="borrowings")
+    user = models.ForeignKey(User, on_delete=DO_NOTHING, related_name="borrowings")
 
     class Meta:
         constraints = [
             models.CheckConstraint(
                 name="borrow_date_before_return_date",
                 check=(
-                        Q(borrow_date__lte=F("expected_return_date"))
-                        & Q(borrow_date__lte=F("actual_return_date"))
+                    Q(borrow_date__lte=F("expected_return_date"))
+                    & Q(borrow_date__lte=F("actual_return_date"))
                 ),
             )
         ]

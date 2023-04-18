@@ -184,7 +184,7 @@ class AuthenticatedBorrowingApiTests(TestCase):
         }
 
         with patch(
-                "borrowings.serializers.send_borrowing_create_message"
+            "borrowings.serializers.send_borrowing_create_message"
         ) as mock_send_message:
             self.client.post(BORROWING_URL, payload)
             mock_send_message.assert_called_once_with(
