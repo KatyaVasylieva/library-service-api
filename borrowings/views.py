@@ -159,7 +159,6 @@ class PaymentViewSet(
     queryset = Payment.objects.select_related(
         "borrowing__book", "borrowing__user"
     ).prefetch_related("borrowing__payments")
-    serializer_class = PaymentSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_serializer_class(self):
